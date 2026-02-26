@@ -84,6 +84,7 @@ export default function Home() {
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
   const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [recordingElapsedMs, setRecordingElapsedMs] = useState(0);
   const [voiceError, setVoiceError] = useState("");
   const [mobileFooterHeight, setMobileFooterHeight] = useState(104);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
@@ -181,6 +182,17 @@ export default function Home() {
       mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, []);
+
+  useEffect(() => {
+    if (!isRecordingVoice) {
+      setRecordingElapsedMs(0);
+      return;
+    }
+    const tick = window.setInterval(() => {
+      setRecordingElapsedMs(Date.now() - recordingStartRef.current);
+    }, 250);
+    return () => window.clearInterval(tick);
+  }, [isRecordingVoice]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -317,6 +329,10 @@ export default function Home() {
     setVoiceClips((prev) => prev.filter((clip) => clip.id !== clipId));
   };
 
+  const clearVoiceClips = () => {
+    setVoiceClips([]);
+  };
+
   const startVoiceRecording = async () => {
     setVoiceError("");
     try {
@@ -358,6 +374,7 @@ export default function Home() {
 
       recorder.start();
       setIsRecordingVoice(true);
+      setRecordingElapsedMs(0);
       return true;
     } catch {
       setVoiceError("mic permission needed");
@@ -370,6 +387,14 @@ export default function Home() {
     if (!recorder || recorder.state === "inactive") return;
     recorder.stop();
     setIsRecordingVoice(false);
+  };
+
+  const toggleVoiceRecording = async () => {
+    if (isRecordingVoice) {
+      stopVoiceRecording();
+      return;
+    }
+    await startVoiceRecording();
   };
 
   const toggleMode = async () => {
@@ -469,6 +494,7 @@ export default function Home() {
     return `${m}:${s}`;
   };
   const lastVoiceClip = voiceClips[0];
+  const recordingDurationLabel = formatVoiceDuration(recordingElapsedMs);
 
   const pageBg = settings.darkMode ? "bg-[#121212]" : "bg-[#e9e9e6]";
   const panelBg = settings.darkMode ? "bg-[#1a1a1a]" : "bg-[#f3f3f0]";
@@ -479,7 +505,8 @@ export default function Home() {
   const textareaTone = settings.darkMode
     ? "text-white/90 placeholder:text-white/35 placeholder:font-normal placeholder:text-[0.72em]"
     : "text-black/90 placeholder:text-black/35 placeholder:font-normal placeholder:text-[0.72em]";
-  const footerHeight = isMobile ? mobileFooterHeight : compactControls ? 44 : 52;
+  const mobileFooterVisible = isMobile && !historyOpen;
+  const footerHeight = isMobile ? (mobileFooterVisible ? mobileFooterHeight : 0) : compactControls ? 44 : 52;
   const controlClass = `${compactControls ? "h-6 min-h-6 px-1 text-[11px]" : "h-7 min-h-7 px-1.5 text-[12px]"} min-w-0 rounded-none bg-transparent py-1 leading-none font-normal tracking-normal shadow-none opacity-75 transition-opacity data-[hover=true]:bg-transparent data-[hover=true]:opacity-100 data-[pressed=true]:scale-100 font-[family-name:var(--font-manrope)] ${mutedText}`;
   const dotClass = `${compactControls ? "mx-0.5 text-[11px]" : "mx-1 text-[12px]"} inline-flex items-center leading-none ${
     settings.darkMode ? "text-white/35" : "text-black/35"
@@ -538,25 +565,25 @@ export default function Home() {
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center">
               <div
-                className={`w-full max-w-2xl rounded-2xl border px-5 py-8 sm:px-8 sm:py-10 ${
-                  settings.darkMode ? "border-white/10 bg-white/[0.02]" : "border-black/10 bg-black/[0.015]"
+                className={`w-full max-w-3xl rounded-2xl border px-5 py-6 sm:px-8 sm:py-8 ${
+                  settings.darkMode ? "border-white/15 bg-white/[0.03]" : "border-black/12 bg-black/[0.02]"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <p className={`font-[family-name:var(--font-manrope)] text-xs tracking-[0.18em] ${settings.darkMode ? "text-white/45" : "text-black/42"}`}>
-                    VOICE JOURNAL
+                  <p className={`font-[family-name:var(--font-manrope)] text-xs tracking-[0.16em] ${settings.darkMode ? "text-white/55" : "text-black/52"}`}>
+                    VOICE STUDIO
                   </p>
-                  <p className={`font-[family-name:var(--font-manrope)] text-xs ${settings.darkMode ? "text-white/50" : "text-black/45"}`}>
-                    {voiceClips.length} saved
+                  <p className={`rounded-full px-2 py-0.5 font-[family-name:var(--font-manrope)] text-[11px] ${settings.darkMode ? "bg-white/10 text-white/70" : "bg-black/8 text-black/62"}`}>
+                    {voiceClips.length} clip{voiceClips.length === 1 ? "" : "s"}
                   </p>
                 </div>
 
-                <div className="mt-8 flex flex-col items-center text-center">
+                <div className="mt-6 flex flex-col items-center text-center">
                   <motion.div
-                    animate={isRecordingVoice ? { scale: [1, 1.05, 1] } : { scale: 1 }}
-                    transition={isRecordingVoice ? { duration: 1.2, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" } : { duration: 0.2 }}
+                    animate={isRecordingVoice ? { scale: [1, 1.06, 1] } : { scale: 1 }}
+                    transition={isRecordingVoice ? { duration: 1.1, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" } : { duration: 0.2 }}
                     className={`relative flex h-24 w-24 items-center justify-center rounded-full border ${
-                      settings.darkMode ? "border-white/20 bg-white/[0.04]" : "border-black/15 bg-black/[0.03]"
+                      settings.darkMode ? "border-red-300/40 bg-red-300/10" : "border-red-500/30 bg-red-500/8"
                     }`}
                   >
                     <svg viewBox="0 0 24 24" className="h-10 w-10" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -569,8 +596,11 @@ export default function Home() {
                     ) : null}
                   </motion.div>
 
-                  <p className={`mt-5 font-[family-name:var(--font-manrope)] text-sm ${settings.darkMode ? "text-white/65" : "text-black/62"}`}>
-                    {isRecordingVoice ? "recording now..." : "ready to capture your voice note"}
+                  <p className={`mt-4 font-[family-name:var(--font-manrope)] text-sm ${settings.darkMode ? "text-white/75" : "text-black/72"}`}>
+                    {isRecordingVoice ? "recording live" : "ready to record"}
+                  </p>
+                  <p className={`mt-1 font-[family-name:var(--font-manrope)] text-xs ${settings.darkMode ? "text-white/52" : "text-black/48"}`}>
+                    duration {recordingDurationLabel}
                   </p>
                   {lastVoiceClip ? (
                     <p className={`mt-1 font-[family-name:var(--font-manrope)] text-xs ${settings.darkMode ? "text-white/45" : "text-black/45"}`}>
@@ -579,28 +609,45 @@ export default function Home() {
                   ) : null}
                 </div>
 
-                <div className="mt-8 flex items-center justify-center gap-3">
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
                   <Button
                     size="sm"
                     radius="full"
-                    variant="light"
-                    className={`px-4 font-[family-name:var(--font-manrope)] ${isRecordingVoice ? (settings.darkMode ? "text-white/45" : "text-black/45") : ""}`}
-                    onPress={startVoiceRecording}
-                    isDisabled={isRecordingVoice}
+                    variant={isRecordingVoice ? "solid" : "light"}
+                    className={`px-4 font-[family-name:var(--font-manrope)] ${isRecordingVoice ? "bg-red-500 text-white" : ""}`}
+                    onPress={toggleVoiceRecording}
                   >
-                    start
+                    {isRecordingVoice ? "stop recording" : "start recording"}
                   </Button>
                   <Button
                     size="sm"
                     radius="full"
                     variant="light"
-                    className={`px-4 font-[family-name:var(--font-manrope)] ${isRecordingVoice ? (settings.darkMode ? "text-white/95" : "text-black/90") : ""}`}
-                    onPress={stopVoiceRecording}
-                    isDisabled={!isRecordingVoice}
+                    className="px-4 font-[family-name:var(--font-manrope)]"
+                    onPress={() => setHistoryOpen(true)}
                   >
-                    stop
+                    open history
+                  </Button>
+                  <Button
+                    size="sm"
+                    radius="full"
+                    variant="light"
+                    className="px-4 font-[family-name:var(--font-manrope)]"
+                    onPress={clearVoiceClips}
+                    isDisabled={voiceClips.length === 0}
+                  >
+                    clear clips
                   </Button>
                 </div>
+
+                {lastVoiceClip ? (
+                  <div className={`mt-5 rounded-xl border p-3 ${settings.darkMode ? "border-white/10 bg-white/[0.03]" : "border-black/10 bg-black/[0.02]"}`}>
+                    <p className={`mb-2 text-left font-[family-name:var(--font-manrope)] text-[11px] ${settings.darkMode ? "text-white/50" : "text-black/50"}`}>
+                      latest recording
+                    </p>
+                    <audio controls src={lastVoiceClip.audioDataUrl} className="h-8 w-full" />
+                  </div>
+                ) : null}
               </div>
             </div>
           )}
@@ -922,7 +969,28 @@ export default function Home() {
                   Backspace is {settings.backspaceOn ? "On" : "Off"}
                 </Button>
               ) : (
-                <p className={`font-[family-name:var(--font-manrope)] text-[11px] ${mutedText}`}>recording tools</p>
+                <div className="flex items-center">
+                  <Button
+                    size="sm"
+                    radius="none"
+                    variant="light"
+                    className={controlClass}
+                    onPress={toggleVoiceRecording}
+                  >
+                    {isRecordingVoice ? "stop recording" : "start recording"}
+                  </Button>
+                  <span className={dotClass}>•</span>
+                  <Button
+                    size="sm"
+                    radius="none"
+                    variant="light"
+                    className={controlClass}
+                    onPress={clearVoiceClips}
+                    isDisabled={voiceClips.length === 0}
+                  >
+                    clear clips
+                  </Button>
+                </div>
               )}
               </div>
               <span className={splitDotClass}>•</span>
@@ -1010,9 +1078,9 @@ export default function Home() {
         </footer>
         <footer
           ref={mobileFooterRef}
-          className={`absolute bottom-0 left-0 right-0 z-50 px-4 pb-3 pt-2 backdrop-blur sm:hidden ${footerBg}`}
+          className={`absolute bottom-0 left-0 right-0 z-50 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur sm:hidden ${footerBg}`}
           onMouseDownCapture={keepWritingFocusOnControlClick}
-          style={{ display: isMobile ? undefined : "none" }}
+          style={{ display: mobileFooterVisible ? undefined : "none" }}
         >
           <div className="flex min-h-10 flex-wrap items-center gap-1">
             <Button size="sm" radius="full" variant="light" className="h-8 px-2 text-[12px]" onPress={toggleTimer} onDoubleClick={resetTimer}>
@@ -1073,18 +1141,26 @@ export default function Home() {
                 <Button size="sm" radius="full" variant="light" className="h-7 px-2 text-[11px]" onPress={toggleFontSize}>
                   {settings.fontSize}px
                 </Button>
-                {["Lato", "Arial", "System", "Serif", "Random"].map((font) => (
-                  <Button
-                    key={`m-${font}`}
-                    size="sm"
-                    radius="full"
-                    variant="light"
-                    className="h-7 px-2 text-[11px]"
-                    onPress={() => handleFontOption(font as "Lato" | "Arial" | "System" | "Serif" | "Random")}
-                  >
-                    {font === "Random" ? "Random" : font}
-                  </Button>
-                ))}
+                <Button
+                  size="sm"
+                  radius="full"
+                  variant="light"
+                  className="h-7 px-2 text-[11px]"
+                  onPress={() => {
+                    const options: Array<"Lato" | "Arial" | "System" | "Serif" | "Random"> = [
+                      "Lato",
+                      "Arial",
+                      "System",
+                      "Serif",
+                      "Random",
+                    ];
+                    const idx = options.indexOf(settings.fontOption);
+                    const next = options[(idx + 1) % options.length];
+                    handleFontOption(next);
+                  }}
+                >
+                  font: {settings.fontOption === "Random" ? settings.randomFontName || "random" : settings.fontOption.toLowerCase()}
+                </Button>
                 <Button
                   size="sm"
                   radius="full"
@@ -1104,7 +1180,27 @@ export default function Home() {
                 </Button>
               </>
             ) : (
-              <p className={`w-full px-1 text-[11px] font-[family-name:var(--font-manrope)] ${mutedText}`}>voice controls are on canvas</p>
+              <>
+                <Button
+                  size="sm"
+                  radius="full"
+                  variant={isRecordingVoice ? "solid" : "light"}
+                  className={`h-7 px-2 text-[11px] ${isRecordingVoice ? "bg-red-500 text-white" : ""}`}
+                  onPress={toggleVoiceRecording}
+                >
+                  {isRecordingVoice ? "stop recording" : "start recording"}
+                </Button>
+                <Button
+                  size="sm"
+                  radius="full"
+                  variant="light"
+                  className="h-7 px-2 text-[11px]"
+                  onPress={clearVoiceClips}
+                  isDisabled={voiceClips.length === 0}
+                >
+                  clear clips
+                </Button>
+              </>
             )}
           </div>
         </footer>
