@@ -85,7 +85,9 @@ export default function Home() {
   const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [voiceError, setVoiceError] = useState("");
+  const [mobileFooterHeight, setMobileFooterHeight] = useState(104);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
+  const mobileFooterRef = useRef<HTMLElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const recordingStartRef = useRef<number>(0);
@@ -188,6 +190,29 @@ export default function Home() {
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, []);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileFooterHeight(104);
+      return;
+    }
+    const node = mobileFooterRef.current;
+    if (!node || typeof window === "undefined") return;
+
+    const updateHeight = () => {
+      setMobileFooterHeight(Math.ceil(node.getBoundingClientRect().height));
+    };
+
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(node);
+    window.addEventListener("resize", updateHeight);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateHeight);
+    };
+  }, [isMobile, settings.mode]);
 
   const toggleFullscreen = async () => {
     if (!document.fullscreenElement) {
@@ -454,7 +479,7 @@ export default function Home() {
   const textareaTone = settings.darkMode
     ? "text-white/90 placeholder:text-white/35 placeholder:font-normal placeholder:text-[0.72em]"
     : "text-black/90 placeholder:text-black/35 placeholder:font-normal placeholder:text-[0.72em]";
-  const footerHeight = isMobile ? 98 : compactControls ? 44 : 52;
+  const footerHeight = isMobile ? mobileFooterHeight : compactControls ? 44 : 52;
   const controlClass = `${compactControls ? "h-6 min-h-6 px-1 text-[11px]" : "h-7 min-h-7 px-1.5 text-[12px]"} min-w-0 rounded-none bg-transparent py-1 leading-none font-normal tracking-normal shadow-none opacity-75 transition-opacity data-[hover=true]:bg-transparent data-[hover=true]:opacity-100 data-[pressed=true]:scale-100 font-[family-name:var(--font-manrope)] ${mutedText}`;
   const dotClass = `${compactControls ? "mx-0.5 text-[11px]" : "mx-1 text-[12px]"} inline-flex items-center leading-none ${
     settings.darkMode ? "text-white/35" : "text-black/35"
@@ -906,10 +931,20 @@ export default function Home() {
                 size="sm"
                 radius="none"
                 variant="light"
-                className={controlClass}
+                className={`${controlClass} min-w-0 px-2`}
                 onPress={toggleFullscreen}
               >
-                {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+                {isFullscreen ? (
+                  <svg viewBox="0 0 24 24" className={compactControls ? "h-4 w-4" : "h-5 w-5"} fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 4.5H4.5V9M15 4.5h4.5V9M9 19.5H4.5V15M19.5 15v4.5H15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M10 10l-5.5-5.5M14 10l5.5-5.5M10 14l-5.5 5.5M14 14l5.5 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" className={compactControls ? "h-4 w-4" : "h-5 w-5"} fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 4.5H4.5V9M15 4.5h4.5V9M9 19.5H4.5V15M19.5 15v4.5H15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M4.5 9L10 3.5M14 3.5L19.5 9M4.5 15L10 20.5M14 20.5L19.5 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                )}
               </Button>
               <span className={dotClass}>•</span>
               {settings.mode === "Chat" ? (
@@ -974,15 +1009,16 @@ export default function Home() {
           </div>
         </footer>
         <footer
+          ref={mobileFooterRef}
           className={`absolute bottom-0 left-0 right-0 z-50 px-4 pb-3 pt-2 backdrop-blur sm:hidden ${footerBg}`}
           onMouseDownCapture={keepWritingFocusOnControlClick}
           style={{ display: isMobile ? undefined : "none" }}
         >
-          <div className="flex h-10 items-center justify-between gap-1">
-            <Button size="sm" radius="full" variant="light" className="px-2 text-[12px]" onPress={toggleTimer} onDoubleClick={resetTimer}>
+          <div className="flex min-h-10 flex-wrap items-center gap-1">
+            <Button size="sm" radius="full" variant="light" className="h-8 px-2 text-[12px]" onPress={toggleTimer} onDoubleClick={resetTimer}>
               {timerLabel}
             </Button>
-            <Button size="sm" radius="full" variant="light" className="px-2" onPress={toggleMode}>
+            <Button size="sm" radius="full" variant="light" className="h-8 px-2" onPress={toggleMode}>
               {settings.mode === "Voice" ? (
                 <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <rect x="9" y="3.5" width="6" height="11" rx="3" stroke="currentColor" strokeWidth="1.5" />
@@ -1000,17 +1036,27 @@ export default function Home() {
                 </svg>
               )}
             </Button>
-            <Button size="sm" radius="full" variant="light" className="px-2 text-[12px]" onPress={toggleFullscreen}>
-              fs
+            <Button size="sm" radius="full" variant="light" className="h-8 px-2" onPress={toggleFullscreen}>
+              {isFullscreen ? (
+                <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 4.5H4.5V9M15 4.5h4.5V9M9 19.5H4.5V15M19.5 15v4.5H15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M10 10l-5.5-5.5M14 10l5.5-5.5M10 14l-5.5 5.5M14 14l5.5 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 4.5H4.5V9M15 4.5h4.5V9M9 19.5H4.5V15M19.5 15v4.5H15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M4.5 9L10 3.5M14 3.5L19.5 9M4.5 15L10 20.5M14 20.5L19.5 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              )}
             </Button>
-            <Button size="sm" radius="full" variant="light" className="px-2" onPress={() => setHistoryOpen((prev) => !prev)}>
+            <Button size="sm" radius="full" variant="light" className="h-8 px-2" onPress={() => setHistoryOpen((prev) => !prev)}>
               <Image src="/icons/history.png" alt="history" width={18} height={18} className={`h-4 w-4 object-contain ${settings.darkMode ? "invert" : ""}`} />
             </Button>
             <Button
               size="sm"
               radius="full"
               variant="light"
-              className="px-2"
+              className="h-8 px-2"
               onPress={() =>
                 setSettings((prev) => ({
                   ...prev,
@@ -1021,10 +1067,10 @@ export default function Home() {
               {settings.darkMode ? "☀" : <Image src="/icons/theme-moon.png" alt="theme" width={18} height={18} className="h-4 w-4 object-contain opacity-70" />}
             </Button>
           </div>
-          <div className="mt-1 flex h-9 items-center gap-1 overflow-x-auto whitespace-nowrap">
+          <div className="mt-1 flex flex-wrap items-center gap-1">
             {settings.mode === "Chat" ? (
               <>
-                <Button size="sm" radius="full" variant="light" className="px-2 text-[11px]" onPress={toggleFontSize}>
+                <Button size="sm" radius="full" variant="light" className="h-7 px-2 text-[11px]" onPress={toggleFontSize}>
                   {settings.fontSize}px
                 </Button>
                 {["Lato", "Arial", "System", "Serif", "Random"].map((font) => (
@@ -1033,7 +1079,7 @@ export default function Home() {
                     size="sm"
                     radius="full"
                     variant="light"
-                    className="px-2 text-[11px]"
+                    className="h-7 px-2 text-[11px]"
                     onPress={() => handleFontOption(font as "Lato" | "Arial" | "System" | "Serif" | "Random")}
                   >
                     {font === "Random" ? "Random" : font}
@@ -1043,7 +1089,7 @@ export default function Home() {
                   size="sm"
                   radius="full"
                   variant="light"
-                  className="px-2 text-[11px]"
+                  className="h-7 px-2 text-[11px]"
                   onPress={() =>
                     setSettings((prev) => ({
                       ...prev,
@@ -1053,12 +1099,12 @@ export default function Home() {
                 >
                   backspace {settings.backspaceOn ? "on" : "off"}
                 </Button>
-                <Button size="sm" radius="full" variant="light" className="px-2 text-[11px]" onPress={startNewEntry}>
+                <Button size="sm" radius="full" variant="light" className="h-7 px-2 text-[11px]" onPress={startNewEntry}>
                   new
                 </Button>
               </>
             ) : (
-              <p className={`px-1 text-[11px] font-[family-name:var(--font-manrope)] ${mutedText}`}>voice controls are on canvas</p>
+              <p className={`w-full px-1 text-[11px] font-[family-name:var(--font-manrope)] ${mutedText}`}>voice controls are on canvas</p>
             )}
           </div>
         </footer>
